@@ -1,0 +1,21 @@
+USE SCHEMA BANKING;
+
+   -- Create time-series view for daily total transaction amounts (absolute for anomaly detection)
+   CREATE OR REPLACE VIEW DAILY_TRANSACTIONS AS
+   SELECT 
+       DATE(TRANSACTION_DATE) AS TS,
+       SUM(ABS(AMOUNT)) AS TOTAL_AMOUNT
+   FROM TRANSACTIONS
+   GROUP BY DATE(TRANSACTION_DATE)
+   ORDER BY TS;
+
+   -- Create and train anomaly detection model
+   CREATE OR REPLACE SNOWFLAKE.ML.ANOMALY_DETECTION TRANSACTION_ANOMALY_MODEL(
+       INPUT_DATA => SYSTEM$QUERY_REFERENCE('SELECT TS, TOTAL_AMOUNT FROM DAILY_TRANSACTIONS'),
+       TIMESTAMP_COLNAME => 'TS',
+       TARGET_COLNAME => 'TOTAL_AMOUNT',
+       CONFIG_OBJECT => {'evaluate': TRUE}
+   );
+
+   -- Optional: View evaluation metrics or explanations
+   CALL TRANSACTION_ANOMALY_MODEL!EXPLAIN();
